@@ -46,9 +46,9 @@ namespace MetroidPrimeRemasterModelDumper
                 Console.WriteLine("Please specify the mode to run in: ");
                 Console.WriteLine("");
                 Console.WriteLine("    0 = Dump CMDL files");
-                Console.WriteLine("    1 = Dump CMDL files With LODs");
+                Console.WriteLine("    1 = Dump CMDL files with LODs");
                 Console.WriteLine("    2 = Dump SMDL files");
-                Console.WriteLine("    3 = Dump SMDL files With LODs");
+                Console.WriteLine("    3 = Dump SMDL files with LODs");
                 Console.WriteLine("    4 = Dump CHPR files");
                 Console.WriteLine("    5 = Dump CHPR files with LODS");
                 Console.WriteLine("    6 = Dump TXTR files");
