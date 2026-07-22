@@ -1,4 +1,4 @@
-﻿using AvaloniaToolbox.Core.IO;
+using AvaloniaToolbox.Core.IO;
 using DKCTF;
 using EvilWithin2Tool;
 using ImageLibrary;
@@ -38,18 +38,21 @@ namespace MetroidPrimeRemasterModelDumper
             currentPak = pak;
 
             string mode;
+            //reorganized options based on their types
+            //also added SMDL support (in case there are SMDL files that never get called by a CHPR
 
             if (savedMode == "Empty")
             {
                 Console.WriteLine("Please specify the mode to run in: ");
                 Console.WriteLine("");
-                Console.WriteLine("    0 = Dump CMDL files (Static Models)");
-                Console.WriteLine("    1 = Dump CHPR files (Rig Containers)");
-                Console.WriteLine("    2 = Dump CMDL files With LODs");
-                Console.WriteLine("    3 = Dump CHPR files with LODS");
-                Console.WriteLine("    4 = Dump TXTR files (Textures)");
-                Console.WriteLine("    5 = Dump TXTR files with folders for array textures");
-                //Console.WriteLine("    6 = Document Complex Materials (Textures)");
+                Console.WriteLine("    0 = Dump CMDL files");
+                Console.WriteLine("    1 = Dump CMDL files With LODs");
+                Console.WriteLine("    2 = Dump SMDL files");
+                Console.WriteLine("    3 = Dump SMDL files With LODs");
+                Console.WriteLine("    4 = Dump CHPR files");
+                Console.WriteLine("    5 = Dump CHPR files with LODS");
+                Console.WriteLine("    6 = Dump TXTR files");
+                Console.WriteLine("    7 = Dump TXTR files with folders for 3D textures");
                 Console.WriteLine("");
                 Console.WriteLine("WARNING: LOD identification is still buggy. Also, there are still");
                 Console.WriteLine("issues with the UV maps. Dumps may not be 100% accurate.");
@@ -77,42 +80,44 @@ namespace MetroidPrimeRemasterModelDumper
                             savedMode = "0";
                             break;
                         case "1":
-                            if (fileInfo.AssetEntry.Type == "CHPR")
-                                ExtractCharacterProject(fileInfo.FileData, fileInfo, pak);
-                            savedMode = "1";
-                            break;
-                        case "2":
                             saveLODs = true;
                             if (fileInfo.AssetEntry.Type == "CMDL")
                                 ExtractCMDL(fileInfo.FileData, fileInfo, pak);
+                            savedMode = "1";
+                            break;
+                        case "2":
+                            if (fileInfo.AssetEntry.Type == "SMDL")
+                                ExtractSMDL(fileInfo.FileData, fileInfo, pak);
                             savedMode = "2";
                             break;
                         case "3":
                             saveLODs = true;
-                            if (fileInfo.AssetEntry.Type == "CHPR")
-                                ExtractCharacterProject(fileInfo.FileData, fileInfo, pak);
+                            if (fileInfo.AssetEntry.Type == "SMDL")
+                                ExtractSMDL(fileInfo.FileData, fileInfo, pak);
                             savedMode = "3";
                             break;
                         case "4":
-                            if (fileInfo.AssetEntry.Type == "TXTR")
-                                ExtractTXTR(fileInfo.FileData, fileInfo, pak);
+                            if (fileInfo.AssetEntry.Type == "CHPR")
+                                ExtractCharacterProject(fileInfo.FileData, fileInfo, pak);
                             savedMode = "4";
                             break;
                         case "5":
+                            saveLODs = true;
+                            if (fileInfo.AssetEntry.Type == "CHPR")
+                                ExtractCharacterProject(fileInfo.FileData, fileInfo, pak);
+                            savedMode = "5";
+                            break;
+                        case "6":
+                            if (fileInfo.AssetEntry.Type == "TXTR")
+                                ExtractTXTR(fileInfo.FileData, fileInfo, pak);
+                            savedMode = "6";
+                            break;
+                        case "7":
                             makeFolders = true;
                             if (fileInfo.AssetEntry.Type == "TXTR")
                                 ExtractTXTR(fileInfo.FileData, fileInfo, pak);
-                            savedMode = "5";
+                            savedMode = "7";
                             break;
-                            /*
-                        case "6":
-                            if (fileInfo.AssetEntry.Type == "CMDL")
-                                DocumentModelComplexes(fileInfo.FileData, fileInfo, pak);
-                            if (fileInfo.AssetEntry.Type == "SMDL")
-                                DocumentModelComplexes(fileInfo.FileData, fileInfo, pak);
-                            savedMode = "6";
-                            break;
-                            */
                     }
                 }
                 catch
@@ -190,6 +195,26 @@ namespace MetroidPrimeRemasterModelDumper
             string path = Path.Combine(folder, modelName);
             CMDLExporter.Export(cmdl, path, null, saveLODs);
         }
+        //adding SMDL support (literally just the CMDL stuff but the folder says "SMDL" instead of "CMDL")
+
+        static void ExtractSMDL(Stream stream, FileEntry Entry, PAK pak)
+        {
+            Console.WriteLine("Asset ID: " + Entry.AssetEntry.FileID.ToString());
+
+            var cmdl = new CMDL(Entry.FileData);
+            string modelName = Entry.AssetEntry.FileID.ToString();
+
+            //string modelName = fileEntry.AssetEntry.FileID.ToString();
+            string folder = Path.Combine(Path.GetFileNameWithoutExtension(pak.FileInfo.FilePath), "SMDL_" + modelName);
+
+            if (!Directory.Exists(folder))
+            {
+                Directory.CreateDirectory(folder);
+            }
+
+            string path = Path.Combine(folder, modelName);
+            CMDLExporter.Export(cmdl, path, null, saveLODs);
+        }
 
         static void ExtractTXTR(Stream stream, FileEntry Entry, PAK pak)
         {
@@ -208,9 +233,11 @@ namespace MetroidPrimeRemasterModelDumper
 
             string folder;
             string path;
+            //cubemaps (type = 3) now get folders! yippee!
 
-            if (makeFolders && txtr.TextureHeader.Type >= 4)
+            if (makeFolders && txtr.TextureHeader.Type >= 3)
             {
+
                 folder = Path.Combine(Path.GetFileNameWithoutExtension(pak.FileInfo.FilePath));
 
                 if (!Directory.Exists(folder))
@@ -218,7 +245,16 @@ namespace MetroidPrimeRemasterModelDumper
                     Directory.CreateDirectory(folder);
                 }
 
-                folder += "/" + textureName;
+                //labeling cubemap folders (I am NOT sifting through 53814927 cubemaps while looking for an actual 3D texture)
+
+                folder += "/";
+
+                if (txtr.TextureHeader.Type == 3)
+                {
+                    folder += "(CUBEMAP) ";
+                }
+
+                folder += textureName;
 
                 if (!Directory.Exists(folder))
                 {
